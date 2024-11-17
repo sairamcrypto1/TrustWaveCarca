@@ -1,0 +1,243 @@
+﻿@page "/Account/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using TrustWaveCarca.Components.Account.Pages.User
+@using TrustWaveCarca.Data
+@using TrustWaveCarca.Services.Emailservices
+@using TrustWaveCarca.Services.SmsService
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject IdentityEmailSender _identityEmailSender
+@inject IOtpService OtpService
+@inject ApplicationDbContext Dbcontext
+@attribute [AllowAnonymous]
+
+@rendermode InteractiveServer
+
+<PageTitle>Register</PageTitle>
+
+<h3>Register</h3>
+
+<div class="container vh-70 d-flex justify-content-center align-items-center">
+    <div class="row w-100">
+        <div class="col-md-4 mx-auto">
+            <section class="card p-4 shadow-lg">
+                <StatusMessage Message="@Message" />
+                <EditForm Model="Input" OnValidSubmit="RegisterUser" FormName="Input">
+                    <DataAnnotationsValidator />
+                    <h2 class="text-center mb-4">Create a new account</h2>
+                    <hr />
+                    <ValidationSummary class="text-danger" role="alert" />
+
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.PhoneNumber"
+                                   class="form-control rounded-pill"
+                                   autocomplete="tel"
+                                   aria-required="true"
+                                   placeholder="+91XXXXXXXXXX"
+                                   @oninput="(e) => ValidatePhoneNumber(e.Value.ToString())"
+                                   id="phoneNumberInput"
+                                   disabled="@isPhoneNumberDisabled" />
+                        <label for="phoneNumber">Phone Number</label>
+                        <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+                    </div>
+
+
+                    <div class="d-flex mb-3">
+                        <!-- Send OTP Button -->
+                        <button type="button" id="sendOtpButton" class="btn btn-secondary rounded-pill me-2"
+                                disabled="@(enableSendOtpButton == false)" @onclick="SendOtp">
+                            Send OTP
+                        </button>
+
+                        <!-- OTP Input Field (initially hidden) -->
+                        <div class="form-floating" style="display: @(showOtpInput ? "block" : "none")">
+                            <InputText @bind-Value="Input.Otp" class="form-control rounded-pill" id="otpInput" />
+                            <label for="otpInput">Enter OTP</label>
+                            <ValidationMessage For="() => Input.Otp" class="text-danger" />
+                            <button type="button" @onclick="VerifyOtp" class="btn btn-primary rounded-pill ms-2">Verify OTP</button>
+                        </div>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Email" class="form-control rounded-pill" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                        <label for="email">Email</label>
+                        <ValidationMessage For="() => Input.Email" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText type="password" @bind-Value="Input.Password" class="form-control rounded-pill" autocomplete="new-password" aria-required="true" placeholder="password" />
+                        <label for="password">Password</label>
+                        <ValidationMessage For="() => Input.Password" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control rounded-pill" autocomplete="new-password" aria-required="true" placeholder="confirm password" />
+                        <label for="confirm-password">Confirm Password</label>
+                        <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill" disabled="@(!isOtpVerified)">Register</button>
+                </EditForm>
+            </section>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+    private bool showOtpInput=false;
+    private bool enableSendOtpButton;
+    private bool isOtpVerified;
+    private bool isOtpSent = false;
+    private bool isPhoneNumberDisabled;
+
+
+    private InputModel Input { get; set; } = new();
+    private string? _message;
+
+    public string? Message
+    {
+        get => identityErrors is null ? _message : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+        set => _message = value;
+    }
+
+    public async Task RegisterUser()
+    {
+        var user = CreateUser();
+        user.PhoneNumber = Input.PhoneNumber;
+        user.PhoneNumberConfirmed = isOtpVerified;
+
+        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        Logger.LogInformation("User created a new account with password.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+
+        await _identityEmailSender.SendConfirmationLinkAsync(user, Input.Email, callbackUrl);
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new() { ["email"] = Input.Email });
+        }
+
+        await SignInManager.SignInAsync(user, isPersistent: false);
+        RedirectManager.RedirectTo("/home");
+    }
+
+
+    private void ValidatePhoneNumber(string phoneNumber)
+    {
+        var phonePattern = new System.Text.RegularExpressions.Regex(@"^(\+91[6-9][0-9]{9}|[6-9][0-9]{9})$");
+        enableSendOtpButton = phonePattern.IsMatch(phoneNumber);
+    }
+
+
+    private async Task SendOtp()
+    {
+        var otp = new Random().Next(100000, 999999).ToString();
+        var phoneNumber = Input.PhoneNumber;
+
+        if (await OtpService.SendOtpAsync(phoneNumber, otp))
+        {
+            isOtpSent = true;
+            Message = "OTP sent successfully!";
+            showOtpInput = true;
+            StateHasChanged();
+
+
+        }
+        else
+        {
+            Message = "Failed to send OTP.";
+
+        }
+    }
+
+    private async Task VerifyOtp()
+    {
+        if (await OtpService.VerifyOtpAsync(Input.PhoneNumber, Input.Otp))
+        {
+            Message = "Phone number verified successfully.";
+
+            showOtpInput = false; // hide OTP input after successful verification
+            StateHasChanged();
+            isOtpVerified = true;
+            isPhoneNumberDisabled = true;
+        }
+        else
+        {
+            Message = "OTP verification failed. Please try again.";
+        }
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. Ensure that '{nameof(ApplicationUser)}' is not abstract and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private class InputModel
+    {
+        [Required]
+        [Phone]
+        [Display(Name = "Phone Number")]
+        public string PhoneNumber { get; set; } = "";
+
+        public string? Otp { get; set; }
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

@@ -1,0 +1,104 @@
+﻿@page "/user-login-data"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using TrustWaveCarca.Data
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+<h3>Manage Users</h3>
+
+@if (users == null || credentials == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class="table">
+        <thead class="table-dark table-hover">
+            <tr>
+                <th>Unique LoginID</th>
+                <th>Email</th>
+                <th>Mobile No</th>
+                <th>Registration Date</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var data in mergedData)
+            {
+                <tr>
+                    <td>@data.UniqueLoginID</td>
+                    <td>@data.Email</td>
+                    <td>@data.MobileNo</td>
+                    <td>@data.RegistrationDate</td>
+                    <td>@data.LastLoginTime</td>
+                    <td>
+                        <button class="btn btn-danger" @onclick="() => ConfirmDelete(data.Email)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<UserLoginCredentials> credentials;
+    private List<ApplicationUser> users;
+    private List<MergedUserData> mergedData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch users from the tables
+        credentials = await DbContext.UserLoginCredentials.ToListAsync();
+        users = await DbContext.Users.ToListAsync();
+
+        // Join data based on Email
+        mergedData = (from credential in credentials
+                      join user in users on credential.Email equals user.Email
+                      select new MergedUserData
+                          {
+                              UniqueLoginID = credential.UniqueLoginID,
+                              Email = credential.Email,
+                              MobileNo = credential.MobileNo,
+                              RegistrationDate = credential.RegistrationDate.ToDateTime(TimeOnly.MinValue),
+                              IsDelete = credential.IsDelete,
+                              PhoneNumber = user.PhoneNumber,
+                              LastLoginTime = user.LastLoginTime
+                          }).ToList();
+    }
+
+    private async Task ConfirmDelete(string email)
+    {
+        var confirmation = await JSRuntime.InvokeAsync<bool>("confirm", new object[] { "Are you sure you want to delete this user?" });
+        if (confirmation)
+        {
+            await DeleteUser(email);
+        }
+    }
+
+    private async Task DeleteUser(string email)
+    {
+        var userToDelete = await DbContext.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (userToDelete != null)
+        {
+            DbContext.Users.Remove(userToDelete);
+            await DbContext.SaveChangesAsync();
+            // Reload data after deletion
+            await OnInitializedAsync();
+        }
+    }
+
+    public class MergedUserData
+    {
+        public string UniqueLoginID { get; set; }
+        public string Email { get; set; }
+        public string MobileNo { get; set; }
+        public DateTime RegistrationDate { get; set; }
+        public bool IsDelete { get; set; }
+        public string PhoneNumber { get; set; }
+        public DateTime? LastLoginTime { get; set; }
+    }
+}

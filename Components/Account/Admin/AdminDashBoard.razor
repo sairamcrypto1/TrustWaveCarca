@@ -1,0 +1,11 @@
+﻿ @page "/AdminDash"
+ @attribute [Authorize(Roles ="Admin")]
+<AuthorizeView>
+    Hello @context.User.Identity?.Name!
+</AuthorizeView>
+
+<h3>AdminDashBoard</h3>
+
+@code {
+
+}

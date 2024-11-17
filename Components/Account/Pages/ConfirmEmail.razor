@@ -1,0 +1,114 @@
+﻿@page "/Account/ConfirmEmail"
+
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using TrustWaveCarca.Components.Account.Pages.User
+@using TrustWaveCarca.Data
+@using Microsoft.Extensions.Logging
+@using TrustWaveCarca.Services.Emailservices
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<ConfirmEmail> Logger
+@inject ApplicationDbContext Dbcontext
+@inject IdentityEmailSender _identityEmailSender
+
+<PageTitle>Confirm email</PageTitle>
+
+@* <h1>Confirm email</h1>
+<StatusMessage Message="@statusMessage" /> *@
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center mb-4">
+                <img src="https://vaaradhiitservices.com/assets/images/logo/Vaaradhi_logo.jpg" alt="Company Logo" style="width: 150px; height: auto;" />
+            </div>
+            <div class="card">
+                <div class="card-header text-center text-white" style="background-color: #005A80;">
+                    <h1><i class="fas fa-check-circle"></i> Email Confirmation</h1>
+                </div>
+
+                <div class="card-body text-center">
+                    <p class="lead" style="color: black;">@statusMessage</p>
+                    @if (statusMessage == "Thank you for confirming your email.")
+                    {
+                        <p style="color: black;">
+                            Your email address has been successfully confirmed. You can now proceed to log in and access all features of your account.
+                        </p>
+                        <a href="/Account/Login" class="btn mt-3" style="background-color: #005A80; color: white;">Go to Login</a>
+                    }
+                    else
+                    {
+                        <p style="color: black;">
+                            We encountered an error while confirming your email. Please try again or contact support for assistance.
+                        </p>
+                        <a href="/Account/Support" class="btn btn-danger mt-3">Contact Support</a>
+                    }
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <p style="color: #333;">&copy; @DateTime.Now.Year TrustWaveCaraca. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private string? statusMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Code { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserId is null || Code is null)
+        {
+            RedirectManager.RedirectTo("");
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(UserId);
+        if (user is null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+            statusMessage = $"Error loading user with ID {UserId}";
+        }
+        else
+        {
+            var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+            var result = await UserManager.ConfirmEmailAsync(user, code);
+
+            statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
+
+            // Check if both phone number and email are confirmed
+            if (user.PhoneNumberConfirmed && user.EmailConfirmed)
+            {
+                // Execute the code after both verifications
+                string uniqueId = UniqueIdGenerator.GenerateUniqueId(user.PhoneNumber, user.Email);
+
+                var logindata = new UserLoginCredentials
+                    {
+                        UniqueLoginID = uniqueId.ToUpper(),
+                        Email = user.Email,
+                        MobileNo = user.PhoneNumber,
+                        RegistrationDate = DateOnly.FromDateTime(DateTime.Now),
+                    };
+
+                await _identityEmailSender.SendConfirmAckUniqueLoginIdAsync(user, user.Email, uniqueId);
+
+                Logger.LogInformation($"Generated unique ID: {uniqueId}");
+
+                Dbcontext.UserLoginCredentials.Add(logindata);
+                await Dbcontext.SaveChangesAsync();
+            }
+        }
+    }
+}
