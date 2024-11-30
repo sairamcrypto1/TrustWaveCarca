@@ -1,0 +1,191 @@
+﻿@page "/send-request"
+@using Microsoft.EntityFrameworkCore
+@using TrustWaveCarca.Data
+@using TrustWaveCarca.Reusable
+@inject ApplicationDbContext dbcontext
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject InitialLoading initialLoading
+@rendermode InteractiveServer
+
+<h3 class="text-center mb-4 text-primary">Send Chat Request</h3>
+
+<EditForm Model="@request" OnValidSubmit="SendRequest" FormName="request" class="mb-4">
+    <div class="card shadow-lg p-4 mx-auto" style="max-width: 500px;">
+        <div class="form-group mb-4">
+            <label for="Receiver_UniqueId" class="form-label fw-bold text-secondary">Partner ID</label>
+            <InputText @bind-Value="request.Receiver_UniqueId"
+                       id="Receiver_UniqueId"
+                       class="form-control input-style"
+                       placeholder="Enter partner ID"
+                       required />
+        </div>
+
+        <div class="d-flex justify-content-center ">
+            <button type="submit" class="btn btn-submit shadow-lg">
+                <i class="bi bi-send-fill"></i> Send Request
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success mt-3 text-center" role="alert">
+                @successMessage
+            </div>
+        }
+    </div>
+</EditForm>
+
+<style>
+    /* General Page Styles */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 0;
+}
+
+/* Form Card Styles */
+.card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    padding: 20px;
+}
+
+.card .form-label {
+    font-size: 1rem;
+    color: #4a4a4a;
+}
+
+.card .form-control {
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    transition: border 0.3s ease;
+}
+
+/* Input Styling */
+.input-style {
+    font-size: 1rem;
+    border-color: #6a11cb;
+    transition: border-color 0.3s ease;
+}
+
+.input-style:focus {
+    border-color: #2575fc;
+    box-shadow: 0 0 8px rgba(37, 117, 252, 0.5);
+}
+
+/* Button Styles */
+.btn-submit {
+    background: linear-gradient(120deg, #6a11cb, #2575fc);
+    color: white;
+    padding: 12px  25px;
+    border-radius: 30px;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.2s ease, background 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-submit:hover {
+    background: #2575fc;
+    transform: scale(1.05);
+    color:white;
+}
+
+.btn-submit:active {
+    transform: scale(1);
+}
+
+/* Success Message Styling */
+.alert {
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+/* Responsive Form */
+@@media (max-width: 576px) {
+    .card {
+        width: 90%;
+    }
+
+    .btn-submit {
+        width: 100%;
+        font-size: 1rem;
+    }
+}
+
+</style>
+@code {
+    private ChatRequest request = new ChatRequest (); // Replace with actual user email
+    private string? successMessage;
+    private UserLoginCredentials? credentials { get; set; }
+    private string? currentuser { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            currentuser = await initialLoading.GetCurrentUserEmailAsync();
+
+            if (string.IsNullOrEmpty(currentuser))
+            {
+                Console.WriteLine("No user is authenticated.");
+                return;
+            }
+            credentials = await initialLoading.GetUserCredentialsAsync(currentuser);
+
+            if (credentials == null)
+            {
+                Console.WriteLine($"No credentials found for user: {currentuser}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during initialization: {ex.Message}");
+        }
+    }
+
+
+    private async Task SendRequest()
+    {
+        var receverdetals = await dbcontext.UserLoginCredentials
+           .FirstOrDefaultAsync(e => e.UniqueLoginID == request.Receiver_UniqueId);
+
+        if (receverdetals == null)
+        {
+            successMessage = "Partner ID not found!";
+        
+            return; 
+        }
+
+         var chatRequest = new ChatRequest
+            {
+                Sender_UniqueId = credentials.UniqueLoginID,
+                SenderEmail = credentials.Email,
+                RequestDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                Receiver_UniqueId = receverdetals.UniqueLoginID,
+                ReceiverEmail = receverdetals.Email,
+                RequestId = UniqueIdGenerator.GenerateChatReqTransactionId(credentials.UniqueLoginID, receverdetals.UniqueLoginID),
+                IsChatActive = false
+            };
+
+         await dbcontext.ChatRequest.AddAsync(chatRequest);
+        await dbcontext.SaveChangesAsync();
+
+         successMessage = "Request sent successfully!";
+        request = new ChatRequest();
+        StateHasChanged();
+    }
+}

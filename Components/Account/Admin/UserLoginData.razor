@@ -48,6 +48,7 @@ else
     private List<UserLoginCredentials> credentials;
     private List<ApplicationUser> users;
     private List<MergedUserData> mergedData;
+   // private DateTime currentTime = DateTime.UtcNow;
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,7 +67,8 @@ else
                               RegistrationDate = credential.RegistrationDate.ToDateTime(TimeOnly.MinValue),
                               IsDelete = credential.IsDelete,
                               PhoneNumber = user.PhoneNumber,
-                              LastLoginTime = user.LastLoginTime
+                              LastLoginTime = DateTime.UtcNow.AddHours(5).AddMinutes(30)
+
                           }).ToList();
     }
 

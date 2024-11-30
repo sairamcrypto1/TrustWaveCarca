@@ -8,6 +8,8 @@ using TrustWaveCarca.Data;
 using TrustWaveCarca.Services.Emailservices;
 using FluentEmail.Smtp;
 using TrustWaveCarca.Services.SmsService;
+using TrustWaveCarca.Reusable;
+using TrustWaveCarca.Components.Account.Pages.User;
 
 namespace TrustWaveCarca
 {
@@ -41,7 +43,7 @@ namespace TrustWaveCarca
 
 
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
+            builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
                 options.UseNpgsql(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -54,6 +56,12 @@ namespace TrustWaveCarca
                 .AddDefaultTokenProviders();
 
             builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+            builder.Services.AddScoped<InitialLoading>();
+            builder.Services.AddScoped<Partnerchat>();
+            builder.Services.AddBootstrapBlazor();
+           // builder.Services.AddScoped<UIStateService>();
+
+
 
 
             // Configure email settings

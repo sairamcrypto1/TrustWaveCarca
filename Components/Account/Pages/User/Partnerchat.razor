@@ -1,0 +1,458 @@
+﻿@page "/connectchat"
+@using Microsoft.EntityFrameworkCore
+@using TrustWaveCarca.Data
+@using TrustWaveCarca.Reusable
+@* @inject UIStateService UIStateService *@
+
+@inject InitialLoading initialLoading
+@inject ApplicationDbContext dbcontext
+@inject IJSRuntime JSRuntime
+@inject InitialLoading initialLoading
+
+@rendermode InteractiveServer
+<h3 class="text-center mb-4 text-primary ">Connections</h3>
+
+<style>
+    /* General Styles */
+    body {
+        font-family: 'Poppins', sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Loading Spinner */
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+    }
+
+    .spinner {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 50px;
+    }
+
+    .empty-image {
+        width: 600px;
+        height:auto;
+        margin-bottom: 320px;
+    }
+    img{
+        border-radius: 50%;
+    }
+
+    .empty-text {
+        font-size: 1.2rem;
+        color: #777;
+    }
+
+    /* Notification Card */
+    .notification-card {
+        max-width: 400px;
+        margin: 0px auto;
+        background: #fff;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .notification-title {
+        padding: 15px 20px;
+        font-size: 1.5rem;
+        color: #333;
+        background: linear-gradient(120deg, #6a11cb, #2575fc);
+        color: white;
+        text-align: center;
+        margin: 0;
+    }
+
+    /* Scrollable List */
+    .notification-list {
+        max-height: 400px;
+        overflow-y: auto;
+        /* padding: 10px 0; */
+        scrollbar-width: thin;
+        scrollbar-color: #6a11cb #f3f3f3;
+    }
+
+        .notification-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .notification-list::-webkit-scrollbar-track {
+            background: #f3f3f3;
+        }
+
+        .notification-list::-webkit-scrollbar-thumb {
+            background: #6a11cb;
+            border-radius: 10px;
+        }
+
+    /* Notification Items */
+    .notification-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s ease;
+    }
+
+        .notification-item:hover {
+            background: #f9f9f9;
+        }
+
+    .notification-details {
+        flex-grow: 1;
+        margin-right: 15px;
+    }
+
+        .notification-details p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+    .timestamp {
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    /* Buttons */
+    .notification-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 15px;
+        font-size: 0.85rem;
+        border-radius: 25px;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .btn-accept {
+        background: #4caf50;
+        color: white;
+    }
+
+        .btn-accept:hover {
+            background: #43a047;
+            transform: scale(1.05);
+        }
+
+    .btn-reject {
+        background: #e53935;
+        color: white;
+    }
+
+        .btn-reject:hover {
+            background: #d32f2f;
+            transform: scale(1.05);
+        }
+
+    .user-avatar {
+        width: 50px; /* Set width of the avatar */
+        height: 50px; /* Set height of the avatar */
+        border-radius: 50% !important; /* Make the image circular */
+        margin-right: 15px; /* Add space to the right of the avatar */
+        object-fit: cover; /* Ensures the image covers the circular shape without distortion */
+    }
+
+        .user-avatar:hover {
+            transform: scale(1.1); /* Scale the image slightly on hover */
+            cursor: pointer; /* Change cursor to indicate it's clickable */
+            transition: transform 0.3s ease; /* Smooth transition effect when scaling */
+        }
+
+    .avatar-email-container {
+        display: flex;
+        align-items: center; /* Vertically center the items */
+        justify-content: flex-start; /* Align items to the left */
+    }
+
+    .email {
+        font-size: 16px; /* Adjust email font size */
+        color: #333; /* Text color */
+    }
+
+</style>
+@if (partnerChats == null)
+{
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+}
+else if (!partnerChats.Any())
+{
+    <div class="empty-state">
+        <img src="images/No Request.png" alt="No requests" class="empty-image" />
+        <p class="empty-text">No chat connection at the moment.</p>
+    </div>
+}
+else
+{
+    <div class="notification-card">
+        <h3 class="notification-title">Chats</h3>
+        <div class="notification-list">
+            @foreach (var chat in partnerChats)
+            {
+                <div class="notification-item">
+                    <div class="notification-details">
+
+                        <div class="avatar-email-container">
+                            <img src="images/user-placeholder.jpg" alt="User" class="user-avatar" onerror="this.onerror=null; this.src='images/avatar.jpg';" />
+                            <span class="email">@chat.SenderEmail</span>
+                        </div>
+                        <p><strong>ID:</strong> @chat.Sender_UniqueId</p>
+                         <div class="notification-actions">
+                            <button class="btn btn-accept" @onclick='() => GetConnectChat(chat, "Accepted")'>
+                                <i class="bi bi-check-circle-fill"></i>Chat
+                            </button>
+                            <button class="btn btn-reject" @onclick="() => ShowDeleteConfirmation(chat)">
+                                
+                                <i class="bi bi-x-circle-fill"></i> Delete
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+        </div>
+    </div>
+}
+<!-- Modal Structure -->
+<div class="modal-overlay @(isDeleteModalVisible ? "show" : "")"></div>
+<div class="modal" tabindex="-1" id="deleteModal" style='display: @(isDeleteModalVisible ? "block" : "none")'>
+    <div class="modal-dialog modal-dialog-top">
+        <div class="modal-content rounded-3 shadow-lg">
+            <div class="modal-header  text-white" style="background: linear-gradient(120deg, #6a11cb, #2575fc);">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="close text-white bg-dark" data-dismiss="modal" @onclick="HideDeleteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="lead">Do you want to delete this chat permanently?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+                <button type="button" class="btn btn-secondary" @onclick="HideDeleteModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    .modal-dialog-top {
+        margin-top: 50px; /* Adjust the distance from the top */
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        transition: opacity 0.3s ease;
+        opacity: 0;
+        pointer-events: none; /* Prevents interaction when the overlay is hidden */
+    }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: all; /* Allows interaction when the overlay is visible */
+        }
+
+</style>
+@code {
+    private string? currentuser { get; set; }
+    private bool isDeleteModalVisible = false;
+    private PartnerChat? chatToDelete;
+    private List<PartnerChat> partnerChats = new List<PartnerChat>(); 
+
+    private CancellationTokenSource _pollingCancellationTokenSource;
+    private bool _isPollingEnabled = true; // Can be toggled for debugging or controlled externally
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            currentuser = await initialLoading.GetCurrentUserEmailAsync();
+
+            if (!string.IsNullOrEmpty(currentuser))
+            {
+                await LoadChats(currentuser);
+                StartPolling();
+            }
+            else
+            {
+                Console.WriteLine($"Error: currentuser is null or empty.");
+            }
+
+          //  UIStateService.OnStateChange += StateHasChanged;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during initialization: {ex.Message}");
+        }
+    }
+
+    private async void StartPolling()
+    {
+        _pollingCancellationTokenSource = new CancellationTokenSource();
+
+        while (_isPollingEnabled && !_pollingCancellationTokenSource.Token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(3000, _pollingCancellationTokenSource.Token); // Poll every 3 seconds
+                if (!string.IsNullOrEmpty(currentuser))
+                {
+                    await RefreshChats();
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // Gracefully handle task cancellation
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during polling: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task RefreshChats()
+    {
+        try
+        {
+            var updatedChats = await initialLoading.GetChatsAsync(currentuser);
+
+            if (HasChatsChanged(partnerChats, updatedChats))
+            {
+                partnerChats = updatedChats;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing chats: {ex.Message}");
+        }
+    }
+
+    private bool HasChatsChanged(List<PartnerChat> current, List<PartnerChat> updated)
+    {
+        // Basic comparison logic to detect changes
+        if (current.Count != updated.Count)
+            return true;
+
+        foreach (var chat in updated)
+        {
+            var existingChat = current.FirstOrDefault(c => c.Sender_UniqueId == chat.Sender_UniqueId);
+            if (existingChat == null || !existingChat.Equals(chat))
+                return true;
+        }
+
+        return false;
+    }
+
+    public async Task LoadChats(string email)
+    {
+        partnerChats = await initialLoading.GetChatsAsync(email);
+        StateHasChanged();
+    }
+
+
+    public void Dispose()
+    {
+        _pollingCancellationTokenSource?.Cancel();
+        _pollingCancellationTokenSource?.Dispose();
+       // UIStateService.OnStateChange -= StateHasChanged;
+    }
+
+    private async Task GetConnectChat(PartnerChat chat, string status)
+    {
+        try
+        {
+            if (chat != null)
+            {
+                chat.Status = status;
+                dbcontext.PartnerChat.Update(chat);
+                await dbcontext.SaveChangesAsync();
+                //await RefreshChats();
+                // Navigate to the chat page or update status
+                // Example: NavigationManager.NavigateTo($"/chat/{chat.Sender_UniqueId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting chat: {ex.Message}");
+        }
+    }
+
+    private void ShowDeleteConfirmation(PartnerChat chat)
+    {
+
+        chatToDelete = chat;
+        isDeleteModalVisible = true;
+    }
+
+    private void HideDeleteModal()
+    {
+        isDeleteModalVisible = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (chatToDelete != null)
+        {
+             var existingChat = dbcontext.PartnerChat
+                                        .Local
+                                        .FirstOrDefault(entry => entry.id.Equals(chatToDelete.id));
+            if (existingChat != null)
+            {
+                 dbcontext.Entry(existingChat).State = EntityState.Detached;
+            }
+             chatToDelete.Isdelete = true;
+            dbcontext.PartnerChat.Update(chatToDelete);
+            await dbcontext.SaveChangesAsync();
+            partnerChats.Remove(chatToDelete);
+            chatToDelete = null;  // Reset chatToDelete to avoid accidental use after deletion
+        }
+        isDeleteModalVisible = false;
+    }
+
+}

@@ -1,0 +1,369 @@
+﻿@page "/accept-request"
+@using Microsoft.EntityFrameworkCore
+@using TrustWaveCarca.Data
+@using TrustWaveCarca.Reusable
+@* @inject UIStateService UIStateService *@
+@inject InitialLoading initialLoading
+@inject Partnerchat partner
+@inject NavigationManager NavigationManager
+
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ApplicationDbContext dbcontext
+@rendermode InteractiveServer
+
+<h3 class="text-center mb-4 text-primary">Incoming Chat Requests</h3>
+<style>
+    /* General Styles */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+}
+
+/* Loading Spinner */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 50px;
+}
+
+.empty-image {
+    width: 150px;
+    margin-bottom: 20px;
+}
+
+.empty-text {
+    font-size: 1.2rem;
+    color: #777;
+}
+
+/* Notification Card */
+.notification-card {
+    max-width: 400px;
+    margin: 0px auto;
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.notification-title {
+    padding: 15px 20px;
+    font-size: 1.5rem;
+    color: #333;
+    background: linear-gradient(120deg, #6a11cb, #2575fc);
+    color: white;
+    text-align: center;
+    margin: 0;
+}
+
+/* Scrollable List */
+.notification-list {
+    max-height: 400px;
+    overflow-y: auto;
+    /* padding: 10px 0; */
+    scrollbar-width: thin;
+    scrollbar-color: #6a11cb #f3f3f3;
+}
+
+.notification-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+    background: #f3f3f3;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background: #6a11cb;
+    border-radius: 10px;
+}
+
+/* Notification Items */
+.notification-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s ease;
+}
+
+.notification-item:hover {
+    background: #f9f9f9;
+}
+
+.notification-details {
+    flex-grow: 1;
+    margin-right: 15px;
+}
+
+.notification-details p {
+    margin: 5px 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.timestamp {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+/* Buttons */
+.notification-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 15px;
+    font-size: 0.85rem;
+    border-radius: 25px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.btn-accept {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-accept:hover {
+    background: #43a047;
+    transform: scale(1.05);
+}
+
+.btn-reject {
+    background: #e53935;
+    color: white;
+}
+
+.btn-reject:hover {
+    background: #d32f2f;
+    transform: scale(1.05);
+
+}
+
+    .user-avatar {
+        width: 50px; /* Set width of the avatar */
+        height: 50px; /* Set height of the avatar */
+        border-radius: 50% !important; /* Make the image circular */
+        margin-right: 15px; /* Add space to the right of the avatar */
+        object-fit: cover; /* Ensures the image covers the circular shape without distortion */
+    }
+
+        .user-avatar:hover {
+            transform: scale(1.1); /* Scale the image slightly on hover */
+            cursor: pointer; /* Change cursor to indicate it's clickable */
+            transition: transform 0.3s ease; /* Smooth transition effect when scaling */
+        }
+
+    .avatar-email-container {
+        display: flex;
+        align-items: center; /* Vertically center the items */
+        justify-content: flex-start; /* Align items to the left */
+    }
+
+    .email {
+        font-size: 16px; /* Adjust email font size */
+        color: #333; /* Text color */
+    }
+
+
+</style>
+@if (requests == null)
+{
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+}
+else if (!requests.Any())
+{
+    <div class="empty-state">
+        <img src="no-requests.svg" alt="No requests" class="empty-image" />
+        <p class="empty-text">No incoming requests at the moment.</p>
+    </div>
+}
+else
+{
+    <div class="notification-card">
+        <h3 class="notification-title">Incoming Requests</h3>
+        <div class="notification-list">
+            @foreach (var req in requests)
+            {
+                <div class="notification-item">
+                    <div class="notification-details">
+
+                        <div class="avatar-email-container">
+                            <img src="images/user-placeholder.jpg" alt="User" class="user-avatar" onerror="this.onerror=null; this.src='images/avatar.jpg';" />
+                            <span class="email">@req.SenderEmail</span>
+                        </div>
+                        <p><strong>From:</strong> @req.Sender_UniqueId</p>
+                        <p class="timestamp">Request Date: @req.RequestDate</p>
+                        @* <p class="timestamp">Request Date: @DateTime.Now.ToString("g")</p> *@
+                        <div class="notification-actions">
+                            <button class="btn btn-accept" @onclick='() => HandleRequest(req, "Accepted")'>
+                                <i class="bi bi-check-circle-fill"></i> Accept
+                            </button>
+                            <button class="btn btn-reject" @onclick='() => HandleRequest(req, "Rejected")'>
+                                <i class="bi bi-x-circle-fill"></i> Reject
+                            </button>
+                        </div>
+                        
+                    </div>
+                    
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<ChatRequest> requests;
+    private UserLoginCredentials? credentials { get; set; }
+    private string? currentuser { get; set; }
+    private SemaphoreSlim _semaphore = new(1, 1);  
+    private PartnerChat partnerChat { get; set; } = new PartnerChat();
+
+    private Timer? _timer;
+    private int PollingIntervalMilliseconds = 3000; // Poll every 5 seconds
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeDataAsync();
+
+        // Set up the polling mechanism
+        _timer = new Timer(async _ => await PollForNewRequests(), null, PollingIntervalMilliseconds, PollingIntervalMilliseconds);
+    }
+
+    private async Task InitializeDataAsync()
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            currentuser = await initialLoading.GetCurrentUserEmailAsync();
+
+            if (string.IsNullOrEmpty(currentuser))
+            {
+                Console.WriteLine("No user is authenticated.");
+                return;
+            }
+            credentials = await initialLoading.GetUserCredentialsAsync(currentuser);
+
+            if (credentials == null)
+            {
+                Console.WriteLine($"No credentials found for user: {currentuser}");
+            }
+
+            requests = await initialLoading.GetChatRequestsAsync(credentials.Email);
+            Console.WriteLine("req add " + requests.Count());
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during initialization: {ex.Message}");
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private async Task PollForNewRequests()
+    {
+        try
+        {
+            if (credentials != null)
+            {
+                var newRequests = await initialLoading.GetChatRequestsAsync(credentials.Email);
+                Console.WriteLine("New req add " + newRequests.Count());
+                if (newRequests != null && newRequests.Any())
+                {
+                    // Add only new requests to the list
+                    foreach (var request in newRequests)
+                    {
+                        if (!requests.Any(r => r.id == request.id))
+                        {
+                            requests.Add(request);
+                        }
+                    }
+
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during polling: {ex.Message}");
+        }
+    }
+
+    private async Task HandleRequest(ChatRequest request, string status)
+    {
+        request.Status = status;
+        request.AcceptDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        dbcontext.ChatRequest.Update(request);
+
+        await dbcontext.SaveChangesAsync();
+
+        var chat = new TrustWaveCarca.Data.PartnerChat
+            {
+                Sender_UniqueId = request.Sender_UniqueId,
+                SenderEmail = request.SenderEmail,
+                Receiver_UniqueId = request.Receiver_UniqueId,
+                ReceiverEmail = request.ReceiverEmail,
+                AcceptDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                Status = status,
+                Isdelete = false,
+                block = false,
+            };
+        await dbcontext.PartnerChat.AddAsync(chat);
+        await dbcontext.SaveChangesAsync();
+
+        // Refresh the list
+        requests.Remove(request);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+         // Notify UI to refresh
+       // UIStateService.NotifyStateChange();
+         //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+}

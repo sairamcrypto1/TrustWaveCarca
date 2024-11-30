@@ -11,6 +11,9 @@ namespace TrustWaveCarca.Data
 
          public DbSet<UserLoginCredentials> UserLoginCredentials { get; set; }
          public DbSet<UserLoginLoges> LoginLoges { get; set; }
+         public DbSet<ChatRequest> ChatRequest { get; set; }
+
+        public DbSet<PartnerChat> PartnerChat { get; set; }
 
          protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TrustWaveCarca.Data;
@@ -11,9 +12,11 @@ using TrustWaveCarca.Data;
 namespace TrustWaveCarca.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241127192038_chatRequest-modify")]
+    partial class chatRequestmodify
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -265,51 +268,6 @@ namespace TrustWaveCarca.Migrations
                     b.HasKey("id");
 
                     b.ToTable("ChatRequest");
-                });
-
-            modelBuilder.Entity("TrustWaveCarca.Data.PartnerChat", b =>
-                {
-                    b.Property<int>("id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("id"));
-
-                    b.Property<DateOnly>("AcceptDate")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly>("DeleteDate")
-                        .HasColumnType("date");
-
-                    b.Property<bool>("Isdelete")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ReceiverEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Receiver_UniqueId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SenderEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Sender_UniqueId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("block")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("id");
-
-                    b.ToTable("PartnerChat");
                 });
 
             modelBuilder.Entity("TrustWaveCarca.Data.UserLoginCredentials", b =>

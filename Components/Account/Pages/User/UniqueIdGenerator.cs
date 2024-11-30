@@ -1,4 +1,6 @@
-﻿namespace TrustWaveCarca.Components.Account.Pages.User
+﻿using Microsoft.AspNetCore.Server.HttpSys;
+
+namespace TrustWaveCarca.Components.Account.Pages.User
 {
     public class UniqueIdGenerator
     {
@@ -31,5 +33,28 @@
 
             return uniqueId;
         }
+        private static Random random = new Random();  // Use a static Random instance
+
+        public static string GenerateChatReqTransactionId(string SedId, string RecId)
+        {
+             int randomNumber = random.Next(100, 999);  // 3-digit random number
+
+            string datePart = DateTime.UtcNow.ToString("yyyyMMdd");
+
+            // Get first 4 characters from SedId
+            string firstFourChars = SedId.Length >= 4 ? SedId.Substring(0, 4) : SedId;  
+
+            // Get last 4 characters from RecId
+            string lastFourChars = RecId.Length >= 4 ? RecId.Substring(RecId.Length - 4) : RecId;  
+
+             string combinedId = $"{randomNumber}{firstFourChars}{lastFourChars}";
+
+            string shuffledId = new string(combinedId.OrderBy(c => random.Next()).ToArray());
+
+            string REQID = $"TXN-{datePart}-{shuffledId}";
+
+            return REQID;
+        }
+
     }
 }
