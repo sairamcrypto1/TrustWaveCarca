@@ -20,7 +20,9 @@
             @if (credentials != null)
             {
                 <h3>
-                    <span class="bgcolor text-white" style="padding:4px; border-radius:3%;">ID: <span class="text-white">@credentials.UniqueLoginID</span></span>
+                    <span class="btnbgcolor text-white p-2 rounded" style="font-size: 1.2rem;">
+                        ID: <span class="text-white">@credentials.UniqueLoginID</span>
+                    </span>
                 </h3>
             }
             else
@@ -28,70 +30,43 @@
                 <p>No credentials found for this user.</p>
             }
         </div>
+
         <div class="row">
-            <!-- Left Side -->
-            <div class="col-5 gap-3">
+            <!-- Left Side (Chats) -->
+            <div class="col-12 col-md-5 mb-4 mb-md-0">
                 <Chatsendrequest />
                 <Chatacceptrequest />
             </div>
-            <!-- Right Side -->
-            <div class="col-5 offset-1">
+
+            <!-- Right Side (Partner Chat) -->
+            <div class="col-12 col-md-6 offset-md-1">
                 <Partnerchat />
             </div>
         </div>
     </Authorized>
+
     <NotAuthorized>
-        <div style="
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: 10vh;
-        background-color: #f8f9fa;
-        padding: 20px;">
-            <h3 style="
-            text-align: center;
-                background: linear-gradient(120deg, #6a11cb, #2575fc);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-family: Arial, sans-serif;
-            font-size: 2rem;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+        <div class="d-flex flex-column justify-content-center align-items-center min-vh-50 bg-light p-4">
+            <h3 class="text-center bgcolor text-white py-3 px-4 rounded-3 shadow-sm mb-4" style="font-size: 2rem;">
                 Welcome to TrustwaveCarca!
             </h3>
-            <p class="mb-3" style="
-            margin-top: 20px;
-            font-size: 1rem;
-            color: #6c757d;
-            font-family: Arial, sans-serif;">
+
+            <p class="mb-3 text-center text-muted" style="font-size: 1rem;">
                 Don’t have an account?
-                <a href="@RegisterPath" class="btn btn-link text-decoration-none" style="
-                color: green;
-                font-weight: bold;
-                text-decoration: none;">
+                <a href="@RegisterPath" class="btn btn-link text-success fw-bold">
                     Register
                 </a>
             </p>
-            <p style="
-            font-size: 1rem;
-            color: #6c757d;
-            font-family: Arial, sans-serif;">
+
+            <p class="text-center text-muted" style="font-size: 1rem;">
                 Already a member?
-                <a href="@LoginPath" class="btn btn-sm" style="
-                background-color: blue;
-                color: #fff;
-                font-weight: bold;
-                padding: 6px 12px;
-                border-radius: 5px;
-                text-decoration: none;">
+                <a href="@LoginPath" class="btn btn-sm btnbgcolor" style="font-weight: bold; text-decoration: none;">
                     Login
                 </a>
                 to access your account.
             </p>
         </div>
     </NotAuthorized>
-
 </AuthorizeView>
 
 @code {
