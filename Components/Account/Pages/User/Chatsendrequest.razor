@@ -8,8 +8,10 @@
 @inject InitialLoading initialLoading
 @rendermode InteractiveServer
 
-<h3 class="text-center mb-4 text-primary">Send Chat Request</h3>
-
+<h4 class="text-center text-white btnbgcolor py-2 rounded shadow-lg ">
+    Send Chat Request
+</h4>
+ 
 <EditForm Model="@request" OnValidSubmit="SendRequest" FormName="request" class="mb-4">
     <div class="card shadow-lg p-4 mx-auto" style="max-width: 500px;">
         <div class="form-group mb-4">
@@ -166,11 +168,16 @@ body {
         if (receverdetals == null)
         {
             successMessage = "Partner ID not found!";
-        
-            return; 
+            return;
+        }
+        else if (credentials.UniqueLoginID == request.Receiver_UniqueId)
+        {
+            successMessage = "You cannot send a request to yourself!";
+            return;
         }
 
-         var chatRequest = new ChatRequest
+
+        var chatRequest = new ChatRequest
             {
                 Sender_UniqueId = credentials.UniqueLoginID,
                 SenderEmail = credentials.Email,
@@ -181,10 +188,10 @@ body {
                 IsChatActive = false
             };
 
-         await dbcontext.ChatRequest.AddAsync(chatRequest);
+        await dbcontext.ChatRequest.AddAsync(chatRequest);
         await dbcontext.SaveChangesAsync();
 
-         successMessage = "Request sent successfully!";
+        successMessage = "Request sent successfully!";
         request = new ChatRequest();
         StateHasChanged();
     }

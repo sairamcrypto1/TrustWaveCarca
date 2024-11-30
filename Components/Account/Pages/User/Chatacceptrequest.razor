@@ -13,7 +13,9 @@
 @inject ApplicationDbContext dbcontext
 @rendermode InteractiveServer
 
-<h3 class="text-center mb-4 text-primary">Incoming Chat Requests</h3>
+@* <h4 class="text-center text-white btnbgcolor py-2 rounded shadow-lg ">
+    Incoming Chat Requests
+</h4> *@
 <style>
     /* General Styles */
 body {
@@ -57,8 +59,8 @@ body {
 }
 
 .empty-image {
-    width: 150px;
-    margin-bottom: 20px;
+        width: 600px;
+        height: auto;
 }
 
 .empty-text {
@@ -214,7 +216,7 @@ body {
 else if (!requests.Any())
 {
     <div class="empty-state">
-        <img src="no-requests.svg" alt="No requests" class="empty-image" />
+        <img src="images/nodataimg.png" alt="No data found" class="img-fluid empty-image" />
         <p class="empty-text">No incoming requests at the moment.</p>
     </div>
 }
@@ -260,7 +262,7 @@ else
     private PartnerChat partnerChat { get; set; } = new PartnerChat();
 
     private Timer? _timer;
-    private int PollingIntervalMilliseconds = 3000; // Poll every 5 seconds
+    private int PollingIntervalMilliseconds = 3000; // Poll every 3 seconds
 
     protected override async Task OnInitializedAsync()
     {
@@ -313,7 +315,6 @@ else
                 Console.WriteLine("New req add " + newRequests.Count());
                 if (newRequests != null && newRequests.Any())
                 {
-                    // Add only new requests to the list
                     foreach (var request in newRequests)
                     {
                         if (!requests.Any(r => r.id == request.id))
@@ -321,8 +322,8 @@ else
                             requests.Add(request);
                         }
                     }
-
-                    StateHasChanged();
+                    // Notify the UI about the updates
+                  await InvokeAsync(StateHasChanged);
                 }
             }
         }

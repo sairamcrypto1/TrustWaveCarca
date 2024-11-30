@@ -8,9 +8,12 @@
 @inject ApplicationDbContext dbcontext
 @inject IJSRuntime JSRuntime
 @inject InitialLoading initialLoading
-
 @rendermode InteractiveServer
-<h3 class="text-center mb-4 text-primary ">Connections</h3>
+
+
+@* <h4 class="text-center text-white btnbgcolor py-2 rounded shadow-lg ">
+    Connections
+</h4> *@
 
 <style>
     /* General Styles */
@@ -58,7 +61,7 @@
     .empty-image {
         width: 600px;
         height:auto;
-        margin-bottom: 320px;
+       
     }
     img{
         border-radius: 50%;
@@ -215,7 +218,7 @@
 else if (!partnerChats.Any())
 {
     <div class="empty-state">
-        <img src="images/No Request.png" alt="No requests" class="empty-image" />
+        <img src="images/nodataimg.png" alt="No data found" class="img-fluid empty-image" />
         <p class="empty-text">No chat connection at the moment.</p>
     </div>
 }
@@ -337,7 +340,7 @@ else
         {
             try
             {
-                await Task.Delay(3000, _pollingCancellationTokenSource.Token); // Poll every 3 seconds
+                await Task.Delay(2000, _pollingCancellationTokenSource.Token); // Poll every 2 seconds
                 if (!string.IsNullOrEmpty(currentuser))
                 {
                     await RefreshChats();
