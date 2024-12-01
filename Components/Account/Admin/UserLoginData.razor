@@ -7,6 +7,7 @@
 @inject ApplicationDbContext DbContext
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
+<div class="container-fluid px-2">
 <h3>Manage Users</h3>
 
 @if (users == null || credentials == null)
@@ -15,34 +16,37 @@
 }
 else
 {
-    <table class="table">
-        <thead class="bgcolor table-hover">
-            <tr>
-                <th>Unique LoginID</th>
-                <th>Email</th>
-                <th>Mobile No</th>
-                <th>Registration Date</th>
-                <th>Last Login</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var data in mergedData)
-            {
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm">
+            <thead class="bgcolor">
                 <tr>
-                    <td>@data.UniqueLoginID</td>
-                    <td>@data.Email</td>
-                    <td>@data.MobileNo</td>
-                    <td>@data.RegistrationDate</td>
-                    <td>@data.LastLoginTime</td>
-                    <td>
-                        <button class="btn btn-danger" @onclick="() => ConfirmDelete(data.Email)">Delete</button>
-                    </td>
+                    <th>Unique LoginID</th>
+                    <th>Email</th>
+                    <th>Mobile No</th>
+                    <th>Registration Date</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var data in mergedData)
+                {
+                    <tr>
+                        <td>@data.UniqueLoginID</td>
+                        <td>@data.Email</td>
+                        <td>@data.MobileNo</td>
+                        <td>@data.RegistrationDate.ToString("dd-MM-yyyy")</td>
+                        <td>@data.LastLoginTime?.ToString("dd-MM-yyyy HH:mm")</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" @onclick="() => ConfirmDelete(data.Email)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
+</div>
 
 @code {
     private List<UserLoginCredentials> credentials;
