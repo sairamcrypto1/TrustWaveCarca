@@ -29,6 +29,7 @@ namespace TrustWaveCarca
             builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddSingleton<IOtpService, TwilioOtpService>();
+           // builder.Services.AddSingleton<IOtpService, Fast2SmsOtpService>();
 
 
             builder.Services.AddAuthentication(options =>
@@ -59,7 +60,7 @@ namespace TrustWaveCarca
             builder.Services.AddScoped<InitialLoading>();
             builder.Services.AddScoped<Partnerchat>();
             builder.Services.AddBootstrapBlazor();
-           // builder.Services.AddScoped<UIStateService>();
+            // builder.Services.AddScoped<UIStateService>();
 
 
 
