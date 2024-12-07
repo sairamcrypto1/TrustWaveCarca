@@ -120,6 +120,10 @@ namespace TrustWaveCarca
             // Add additional endpoints required by the Identity /Account Razor components.
             app.MapAdditionalIdentityEndpoints();
 
+            // Add port configuration
+            var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+            app.Urls.Add($"http://0.0.0.0:{port}");
+
             app.Run();
         }
     }
