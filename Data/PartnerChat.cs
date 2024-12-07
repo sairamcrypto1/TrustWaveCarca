@@ -12,6 +12,7 @@
         public bool Isdelete { get; set; }=false;
         public DateOnly DeleteDate { get; set; }
         public bool block { get; set; } = false;
+        public DateTime LastUpdated { get; set; }
 
     }
 }

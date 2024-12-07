@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
+using TrustWaveCarca.Components.Account.Pages.User;
 using TrustWaveCarca.Data;
 using TrustWaveCarca.Migrations;
 
@@ -9,6 +11,12 @@ namespace TrustWaveCarca.Reusable
     {
         private readonly AuthenticationStateProvider _authenticationStateProvider;
         private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
+
+        public List<ChatRequest> Requests { get; private set; } = new List<ChatRequest>();
+        public List<PartnerChat> PartnerChats { get; private set; } = new List<PartnerChat>();
+       
+
+        public event Action OnChange;
         public InitialLoading(AuthenticationStateProvider authenticationStateProvider , IDbContextFactory<ApplicationDbContext> dbContextFactory)
         {
             _authenticationStateProvider = authenticationStateProvider;
@@ -26,21 +34,26 @@ namespace TrustWaveCarca.Reusable
             return await dbContext.UserLoginCredentials.FirstOrDefaultAsync(e => e.Email == email);
         }
 
-        public async Task<List<ChatRequest>> GetChatRequestsAsync(string receiverEmail)
+        public async Task LoadChatRequestsAsync(string receiverEmail)
         {
             await using var dbContext = _dbContextFactory.CreateDbContext();
-            return await dbContext.ChatRequest
-                .Where(r => r.ReceiverEmail == receiverEmail && r.Status == "Pending")
+            Requests = await dbContext.ChatRequest
+                .Where(r => r.ReceiverEmail == receiverEmail && r.Status == "Pending" )
                 .ToListAsync();
+            Console.WriteLine($"Loaded {Requests.Count} chat requests.");
+
+            NotifyStateChanged();
         }
-        public async Task<List<PartnerChat>> GetChatsAsync(string email)
+       
+        public async Task LoadPartnerChatsAsync(string receiverEmail)
         {
             await using var dbContext = _dbContextFactory.CreateDbContext();
-
-            return await  dbContext.PartnerChat
-                    .Where(p => p.ReceiverEmail == email && p.Isdelete == false && p.Status == "Accepted")
-                    .ToListAsync();
+            PartnerChats = await dbContext.PartnerChat
+                .Where(p => p.ReceiverEmail == receiverEmail && p.Isdelete == false && p.Status == "Accepted")
+                .ToListAsync();
+            NotifyStateChanged();
         }
+        private void NotifyStateChanged() => OnChange?.Invoke();
 
     }
 }

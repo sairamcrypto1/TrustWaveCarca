@@ -10,6 +10,7 @@ using FluentEmail.Smtp;
 using TrustWaveCarca.Services.SmsService;
 using TrustWaveCarca.Reusable;
 using TrustWaveCarca.Components.Account.Pages.User;
+using TrustWaveCarca.Components.ChatComponent;
 
 namespace TrustWaveCarca
 {
@@ -30,7 +31,7 @@ namespace TrustWaveCarca
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddSingleton<IOtpService, TwilioOtpService>();
            // builder.Services.AddSingleton<IOtpService, Fast2SmsOtpService>();
-
+           builder.Services.AddSignalR();
 
             builder.Services.AddAuthentication(options =>
                 {
@@ -47,6 +48,8 @@ namespace TrustWaveCarca
             builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
                 options.UseNpgsql(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+            
+
 
             builder.Services.AddIdentityCore<ApplicationUser>(options => 
             options.SignIn.RequireConfirmedAccount = true)
@@ -59,8 +62,9 @@ namespace TrustWaveCarca
             builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
             builder.Services.AddScoped<InitialLoading>();
             builder.Services.AddScoped<Partnerchat>();
+            builder.Services.AddScoped<Chatacceptrequest>();
             builder.Services.AddBootstrapBlazor();
-            // builder.Services.AddScoped<UIStateService>();
+            //builder.Services.AddScoped<ChatRequestState>();
 
 
 
@@ -104,11 +108,15 @@ namespace TrustWaveCarca
             app.UseHttpsRedirection();
 
             app.UseStaticFiles();
+
+            app.UseAuthentication(); // Ensure authentication is before SignalR mapping
+            app.UseAuthorization();
+
             app.UseAntiforgery();
-            
+
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
-
+            app.MapHub<ChatHub>("/chathub");
             // Add additional endpoints required by the Identity /Account Razor components.
             app.MapAdditionalIdentityEndpoints();
 

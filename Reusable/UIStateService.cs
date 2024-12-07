@@ -1,13 +1,10 @@
 ﻿//namespace TrustWaveCarca.Reusable
 //{
-//    public class UIStateService
+//    public class ChatRequestState
 //    {
-//        public event Action? OnStateChange;
+//        public event Action OnChange;
 
-//        public void NotifyStateChange()
-//        {
-//            OnStateChange?.Invoke();
-//        }
+//        public void NotifyStateChanged() => OnChange?.Invoke();
 //    }
 
 //}

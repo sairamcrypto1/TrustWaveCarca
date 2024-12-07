@@ -1,10 +1,14 @@
 ﻿@page "/connectchat"
+
 @using Microsoft.EntityFrameworkCore
 @using TrustWaveCarca.Data
 @using TrustWaveCarca.Reusable
 @* @inject UIStateService UIStateService *@
+@inject NavigationManager NavigationManager
+@inject IHubContext<ChatHub> HubContext
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
 
-@inject InitialLoading initialLoading
 @inject ApplicationDbContext dbcontext
 @inject IJSRuntime JSRuntime
 @inject InitialLoading initialLoading
@@ -208,14 +212,14 @@
     }
 
 </style>
-@if (partnerChats == null)
+@if (initialLoading.PartnerChats == null)
 {
     <div class="loading-container">
         <div class="spinner"></div>
         <p>Loading...</p>
     </div>
 }
-else if (!partnerChats.Any())
+else if (!initialLoading.PartnerChats.Any())
 {
     <div class="empty-state">
         <img src="images/nodataimg.png" alt="No data found" class="img-fluid empty-image" />
@@ -227,7 +231,7 @@ else
     <div class="notification-card">
         <h3 class="notification-title">Chats</h3>
         <div class="notification-list">
-            @foreach (var chat in partnerChats)
+            @foreach (var chat in initialLoading.PartnerChats)
             {
                 <div class="notification-item">
                     <div class="notification-details">
@@ -238,9 +242,11 @@ else
                         </div>
                         <p><strong>ID:</strong> @chat.Sender_UniqueId</p>
                          <div class="notification-actions">
-                            <button class="btn btn-accept" @onclick='() => GetConnectChat(chat, "Accepted")'>
+                            @* <button class="btn btn-accept" @onclick='() => GetConnectChat(chat, "Accepted")'>
                                 <i class="bi bi-check-circle-fill"></i>Chat
-                            </button>
+                            </button> *@
+                            <button class="btn btn-accept" @onclick="() => ConnectToChat(chat)"> <i class="bi bi-check-circle-fill"></i>Chat</button>
+
                             <button class="btn btn-reject" @onclick="() => ShowDeleteConfirmation(chat)">
                                 
                                 <i class="bi bi-x-circle-fill"></i> Delete
@@ -302,11 +308,9 @@ else
     private string? currentuser { get; set; }
     private bool isDeleteModalVisible = false;
     private PartnerChat? chatToDelete;
-    private List<PartnerChat> partnerChats = new List<PartnerChat>(); 
-
-    private CancellationTokenSource _pollingCancellationTokenSource;
-    private bool _isPollingEnabled = true; // Can be toggled for debugging or controlled externally
-
+    private HubConnection? hubConnection;
+    private List<PartnerChat> PartnerChats { get; set; } = new List<PartnerChat>();
+    private List<string> receivedMessages = new List<string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -317,14 +321,31 @@ else
             if (!string.IsNullOrEmpty(currentuser))
             {
                 await LoadChats(currentuser);
-                StartPolling();
+                initialLoading.OnChange += StateHasChanged;
+                // Set up SignalR connection
+                hubConnection = new HubConnectionBuilder()
+                    .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+                    .Build();
+
+                hubConnection.On<string>("ReceiveMessage", (message) =>
+                {
+                    InvokeAsync(() =>
+                {
+                    receivedMessages.Add(message);
+                    StateHasChanged(); // Refresh UI
+                });
+                });
+
+                await hubConnection.StartAsync();
+                Console.WriteLine($"Connected to SignalR with ConnectionId: {hubConnection.ConnectionId}");
+
             }
             else
             {
                 Console.WriteLine($"Error: currentuser is null or empty.");
             }
 
-          //  UIStateService.OnStateChange += StateHasChanged;
+            //  UIStateService.OnStateChange += StateHasChanged;
         }
         catch (Exception ex)
         {
@@ -332,99 +353,57 @@ else
         }
     }
 
-    private async void StartPolling()
-    {
-        _pollingCancellationTokenSource = new CancellationTokenSource();
-
-        while (_isPollingEnabled && !_pollingCancellationTokenSource.Token.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(2000, _pollingCancellationTokenSource.Token); // Poll every 2 seconds
-                if (!string.IsNullOrEmpty(currentuser))
-                {
-                    await RefreshChats();
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                // Gracefully handle task cancellation
-                break;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during polling: {ex.Message}");
-            }
-        }
-    }
-
-    private async Task RefreshChats()
-    {
-        try
-        {
-            var updatedChats = await initialLoading.GetChatsAsync(currentuser);
-
-            if (HasChatsChanged(partnerChats, updatedChats))
-            {
-                partnerChats = updatedChats;
-                StateHasChanged();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error refreshing chats: {ex.Message}");
-        }
-    }
-
-    private bool HasChatsChanged(List<PartnerChat> current, List<PartnerChat> updated)
-    {
-        // Basic comparison logic to detect changes
-        if (current.Count != updated.Count)
-            return true;
-
-        foreach (var chat in updated)
-        {
-            var existingChat = current.FirstOrDefault(c => c.Sender_UniqueId == chat.Sender_UniqueId);
-            if (existingChat == null || !existingChat.Equals(chat))
-                return true;
-        }
-
-        return false;
-    }
-
     public async Task LoadChats(string email)
     {
-        partnerChats = await initialLoading.GetChatsAsync(email);
+        await initialLoading.LoadPartnerChatsAsync(email);
         StateHasChanged();
     }
 
 
     public void Dispose()
     {
-        _pollingCancellationTokenSource?.Cancel();
-        _pollingCancellationTokenSource?.Dispose();
-       // UIStateService.OnStateChange -= StateHasChanged;
+        // Dispose of the SignalR connection when done
+        if (hubConnection is not null)
+        {
+            _ = hubConnection.DisposeAsync();
+        }
+
+        initialLoading.OnChange -= StateHasChanged;
     }
 
-    private async Task GetConnectChat(PartnerChat chat, string status)
+    private async Task ConnectToChat(PartnerChat chat)
     {
-        try
+        string userId = chat.Receiver_UniqueId;
+        string TargetUserId = chat.Sender_UniqueId;
+        if (hubConnection is not null)
         {
-            if (chat != null)
-            {
-                chat.Status = status;
-                dbcontext.PartnerChat.Update(chat);
-                await dbcontext.SaveChangesAsync();
-                //await RefreshChats();
-                // Navigate to the chat page or update status
-                // Example: NavigationManager.NavigateTo($"/chat/{chat.Sender_UniqueId}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error connecting chat: {ex.Message}");
+            // Now connect to the specific user (send a message)
+            await hubConnection.SendAsync("SendMessage", userId, "Hello, let's chat!");
+            NavigationManager.NavigateTo($"/chat/{userId}/{TargetUserId}");
+
+           // NavigationManager.NavigateTo($"/chat/{userId}"); // Navigate to the chat page
         }
     }
+
+    // private async Task GetConnectChat(PartnerChat chat, string status)
+    // {
+    //     try
+    //     {
+    //         if (chat != null)
+    //         {
+    //             chat.Status = status;
+    //             dbcontext.PartnerChat.Update(chat);
+    //             await dbcontext.SaveChangesAsync();
+    //             //await RefreshChats();
+    //             // Navigate to the chat page or update status
+    //             // Example: NavigationManager.NavigateTo($"/chat/{chat.Sender_UniqueId}");
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Error connecting chat: {ex.Message}");
+    //     }
+    // }
 
     private void ShowDeleteConfirmation(PartnerChat chat)
     {
@@ -442,17 +421,18 @@ else
     {
         if (chatToDelete != null)
         {
-             var existingChat = dbcontext.PartnerChat
-                                        .Local
-                                        .FirstOrDefault(entry => entry.id.Equals(chatToDelete.id));
+            var existingChat = dbcontext.PartnerChat
+                                       .Local
+                                       .FirstOrDefault(entry => entry.id.Equals(chatToDelete.id));
             if (existingChat != null)
             {
-                 dbcontext.Entry(existingChat).State = EntityState.Detached;
+                dbcontext.Entry(existingChat).State = EntityState.Detached;
             }
-             chatToDelete.Isdelete = true;
+            chatToDelete.Isdelete = true;
+            chatToDelete.DeleteDate = DateOnly.FromDateTime(DateTime.UtcNow);
             dbcontext.PartnerChat.Update(chatToDelete);
             await dbcontext.SaveChangesAsync();
-            partnerChats.Remove(chatToDelete);
+            initialLoading.PartnerChats.Remove(chatToDelete);
             chatToDelete = null;  // Reset chatToDelete to avoid accidental use after deletion
         }
         isDeleteModalVisible = false;

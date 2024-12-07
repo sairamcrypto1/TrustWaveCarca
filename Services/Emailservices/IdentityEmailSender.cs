@@ -27,7 +27,7 @@ namespace TrustWaveCarca.Services.Emailservices
 <div style='width: 100%; background-color: #f9f9f9; padding: 20px; box-sizing: border-box; font-family: Arial, sans-serif;'>
     <div style='max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
         <div style='text-align: center; margin-bottom: 20px;'>
-            <img src='https://vaaradhiitservices.com/assets/images/logo/Vaaradhi_logo.jpg' alt='Company Logo' style='width: 150px;'>
+            <img src='https://i.ibb.co/sCdmWTx/mainlogo.jpg' alt='Company Logo' style='width: 150px;'>
         </div>
         <h2 style='color: #333333; text-align: center; margin-bottom: 20px;'>Confirm Your Email Address</h2>
         <p style='color: #555555; font-size: 16px; line-height: 1.6; text-align: center; margin: 0 0 10px 0;'>
@@ -72,7 +72,7 @@ namespace TrustWaveCarca.Services.Emailservices
         <div style='width: 100%; background-color: #f9f9f9; padding: 20px; box-sizing: border-box; font-family: Arial, sans-serif;'>
             <div style='max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
                 <div style='text-align: center; margin-bottom: 20px;'>
-                    <img src='https://vaaradhiitservices.com/assets/images/logo/Vaaradhi_logo.jpg' alt='Company Logo' style='width: 150px;'>
+                    <img src='https://i.ibb.co/sCdmWTx/mainlogo.jpg' alt='Company Logo' style='width: 150px;'>
                 </div>
                 <h2 style='color: #333333; text-align: center; margin-bottom: 20px;'>Registration Successful</h2>
                 <p style='color: #555555; font-size: 16px; line-height: 1.6; text-align: center; margin: 0 0 10px 0;'>

@@ -206,14 +206,14 @@ body {
 
 
 </style>
-@if (requests == null)
+@if (initialLoading.Requests == null)
 {
     <div class="loading-container">
         <div class="spinner"></div>
         <p>Loading...</p>
     </div>
 }
-else if (!requests.Any())
+else if (!initialLoading.Requests.Any())
 {
     <div class="empty-state">
         <img src="images/nodataimg.png" alt="No data found" class="img-fluid empty-image" />
@@ -225,7 +225,7 @@ else
     <div class="notification-card">
         <h3 class="notification-title">Incoming Requests</h3>
         <div class="notification-list">
-            @foreach (var req in requests)
+            @foreach (var req in initialLoading.Requests)
             {
                 <div class="notification-item">
                     <div class="notification-details">
@@ -255,24 +255,22 @@ else
 }
 
 @code {
-    private List<ChatRequest> requests;
     private UserLoginCredentials? credentials { get; set; }
     private string? currentuser { get; set; }
     private SemaphoreSlim _semaphore = new(1, 1);  
     private PartnerChat partnerChat { get; set; } = new PartnerChat();
 
-    private Timer? _timer;
-    private int PollingIntervalMilliseconds = 3000; // Poll every 3 seconds
 
     protected override async Task OnInitializedAsync()
     {
-        await InitializeDataAsync();
+        initialLoading.OnChange += StateHasChanged; // Subscribe to the OnChange event
 
-        // Set up the polling mechanism
-        _timer = new Timer(async _ => await PollForNewRequests(), null, PollingIntervalMilliseconds, PollingIntervalMilliseconds);
+        await InitializeDataAsync();
+        StateHasChanged();
+
     }
 
-    private async Task InitializeDataAsync()
+    public async Task InitializeDataAsync()
     {
         await _semaphore.WaitAsync();
         try
@@ -291,9 +289,10 @@ else
                 Console.WriteLine($"No credentials found for user: {currentuser}");
             }
 
-            requests = await initialLoading.GetChatRequestsAsync(credentials.Email);
-            Console.WriteLine("req add " + requests.Count());
-
+            await initialLoading.LoadChatRequestsAsync(currentuser);
+            initialLoading.OnChange += StateHasChanged;
+            StateHasChanged();
+            await LoadData();
         }
         catch (Exception ex)
         {
@@ -305,33 +304,6 @@ else
         }
     }
 
-    private async Task PollForNewRequests()
-    {
-        try
-        {
-            if (credentials != null)
-            {
-                var newRequests = await initialLoading.GetChatRequestsAsync(credentials.Email);
-                Console.WriteLine("New req add " + newRequests.Count());
-                if (newRequests != null && newRequests.Any())
-                {
-                    foreach (var request in newRequests)
-                    {
-                        if (!requests.Any(r => r.id == request.id))
-                        {
-                            requests.Add(request);
-                        }
-                    }
-                    // Notify the UI about the updates
-                  await InvokeAsync(StateHasChanged);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error during polling: {ex.Message}");
-        }
-    }
 
     private async Task HandleRequest(ChatRequest request, string status)
     {
@@ -351,18 +323,30 @@ else
                 Status = status,
                 Isdelete = false,
                 block = false,
+                LastUpdated = DateTime.UtcNow.AddHours(5).AddMinutes(30),
             };
         await dbcontext.PartnerChat.AddAsync(chat);
         await dbcontext.SaveChangesAsync();
-
         // Refresh the list
-        requests.Remove(request);
+        initialLoading.Requests.Remove(request);
+
+        await initialLoading.LoadPartnerChatsAsync(credentials.Email);
+        await LoadData();
+
+        await InvokeAsync(StateHasChanged);
         StateHasChanged();
     }
+    public async Task LoadData()
+    {
+        // Ensure the chat requests are loaded after the send request
+        await initialLoading.LoadChatRequestsAsync(currentuser);
+        await InvokeAsync(StateHasChanged);
 
+    }
     public void Dispose()
     {
-        _timer?.Dispose();
+        // Unsubscribe from the event
+        initialLoading.OnChange -= StateHasChanged;
     }
          // Notify UI to refresh
        // UIStateService.NotifyStateChange();

@@ -6,7 +6,9 @@
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject InitialLoading initialLoading
+@inject Chatacceptrequest chatacceptrequest
 @rendermode InteractiveServer
+ @inject NavigationManager NavigationManager
 
 <h4 class="text-center text-white btnbgcolor py-2 rounded shadow-lg ">
     Send Chat Request
@@ -152,13 +154,14 @@ body {
             {
                 Console.WriteLine($"No credentials found for user: {currentuser}");
             }
+            initialLoading.OnChange += StateHasChanged;
+
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error during initialization: {ex.Message}");
         }
     }
-
 
     private async Task SendRequest()
     {
@@ -191,8 +194,19 @@ body {
         await dbcontext.ChatRequest.AddAsync(chatRequest);
         await dbcontext.SaveChangesAsync();
 
+        //await initialLoading.LoadChatRequestsAsync(currentuser);
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+
+        await InvokeAsync(StateHasChanged); // Ensure UI update happens after loading data
+
         successMessage = "Request sent successfully!";
         request = new ChatRequest();
         StateHasChanged();
+
+    }
+    public void Dispose()
+    {
+        // Unsubscribe from the event
+        initialLoading.OnChange -= StateHasChanged;
     }
 }

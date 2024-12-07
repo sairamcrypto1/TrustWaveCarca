@@ -1,0 +1,291 @@
+﻿@page "/chat/{userId}/{TargetUserId}"
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IHubContext<ChatHub> HubContext
+@rendermode InteractiveServer
+
+<style>
+    .chat-container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: #f1f1f1;
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-header {
+        padding: 10px;
+        background: linear-gradient(120deg, #6a11cb, #2575fc);
+        color: white;
+        border-radius: 8px 8px 0 0;
+        text-align: center;
+        font-size: 1.2rem;
+    }
+
+    .user-status {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        margin-top: 10px;
+    }
+
+        .user-status span {
+            font-size: 1rem;
+            margin-right: 5px;
+        }
+
+    .chat-messages {
+        flex-grow: 1;
+        padding: 10px;
+        background-color: white;
+        margin: 10px 0;
+        overflow-y: auto;
+        max-height: 300px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+        .chat-messages ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .chat-messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 15px;
+            position: relative;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+    .sent {
+        background-color: #e7e7e7;
+        color: black;
+        align-self: flex-end;
+        margin-left: auto;
+    }
+
+    .received {
+        background-color: #e7e7e7;
+        color: black;
+        align-self: flex-start;
+        margin-right: auto;
+    }
+
+    .chat-input {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+        .chat-input input {
+            flex-grow: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .chat-input button {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .chat-input button:hover {
+                background-color: #0056b3;
+            }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 5px;
+    }
+
+    .online {
+        background-color: green;
+    }
+
+    .offline {
+        background-color: red;
+    }
+
+    /* Apply color only to the word 'Send' */
+    .sent-text {
+        color: #007bff; /* Blue color for "Send" */
+    }
+
+    .received-text {
+        color: #2e7d32; /* Green color for "Send" */
+    }
+
+    .message-time {
+        font-size: 0.8rem;
+        color: #888;
+        margin-left: 10px;
+    }
+</style>
+
+<div class="chat-container">
+    <div class="chat-header">
+        <h3>Chat with User @TargetUserId</h3>
+    </div>
+    <div class="user-status">
+        <span>Status:</span>
+        <span class="status-dot @GetUserStatusClass(TargetUserId)"></span>
+    </div>
+
+    <div class="chat-messages" @ref="messagesContainer">
+        @if (messages.Any())
+        {
+            <ul>
+                @foreach (var msg in messages )
+                {
+                    <li class="@GetMessageClass(msg.Content)">
+                        <span class="message-content">
+                            @if (msg.Content.StartsWith("Send:"))
+                            {
+                                <span class="sent-text">Send</span>
+                                @msg.Content.Substring(4)
+                            }
+                            else
+                            {
+                                <span class="received-text">Received</span>
+                                @msg.Content.Substring(8)
+                            }
+                        </span>
+                        <span class="message-time">
+                            @msg.Timestamp.ToString("hh:mm tt")
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>No messages yet.</p>
+        }
+    </div>
+
+    <div class="chat-input">
+        <input type="text" @bind="message" placeholder="Type a message..." />
+        <button  class="btn btnbgcolor shadow-lg" @onclick="SendMessage">
+            <i class="bi bi-send-fill"></i> Send
+        </button>
+        @* <button @onclick="SendMessage">Send</button> *@
+    </div>
+</div>
+
+@code {
+    [Parameter] public string UserId { get; set; }
+    [Parameter] public string TargetUserId { get; set; }
+
+    private HubConnection? hubConnection;
+    private string message = string.Empty;
+    private List<ChatMessage> messages = new List<ChatMessage>();
+    private ElementReference messagesContainer;
+
+    private Dictionary<string, bool> userStatuses = new();
+
+    private string GetUserStatusClass(string userId)
+    {
+        return userStatuses.ContainsKey(userId) && userStatuses[userId] ? "online" : "offline";
+    }
+
+    private string GetMessageClass(string msg)
+    {
+        // Assuming you can distinguish between sent and received messages using a specific marker or condition
+        if (msg.StartsWith("Send:"))
+        {
+            return "sent";
+        }
+        else
+        {
+            return "received";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine($"Connected to SignalR with client ConnectionId: {UserId}");
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri($"/chathub?userId={UserId}"))
+            .Build();
+
+        hubConnection.On<string, bool>("UpdateUserStatus", (userId, isOnline) =>
+        {
+            InvokeAsync(() =>
+            {
+                userStatuses[userId] = isOnline;
+                StateHasChanged();
+            });
+        });
+
+        hubConnection.On<string>("ReceiveMessage", (receivedMessage) =>
+        {
+            InvokeAsync(async () =>
+            {
+                messages.Add(new ChatMessage
+                    {
+                        Content = $"Received: {receivedMessage}",
+                        Timestamp = DateTime.Now
+                    });
+                // Scroll to the bottom after adding a new message
+                await ScrollToBottom();
+                StateHasChanged();
+            });
+        });
+
+        await hubConnection.StartAsync();
+        Console.WriteLine($"Connected to SignalR with ConnectionId: {hubConnection.ConnectionId}");
+    }
+
+    private async Task SendMessage()
+    {
+        if (hubConnection is not null && !string.IsNullOrEmpty(message))
+        {
+            await hubConnection.SendAsync("SendMessage", TargetUserId, message);
+            messages.Add(new ChatMessage
+                {
+                    Content = $"Send: {message}",
+                    Timestamp = DateTime.Now
+                });
+            // Scroll to the bottom after sending a new message
+            await ScrollToBottom();
+
+            message = string.Empty;
+        }
+    }
+    private async Task ScrollToBottom()
+    {
+        // This uses JS interop to scroll the chat messages container to the bottom
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", messagesContainer);
+    }
+
+    public void Dispose()
+    {
+        if (hubConnection is not null)
+        {
+            _ = hubConnection.DisposeAsync();
+        }
+    }
+
+    public class ChatMessage
+    {
+        public string Content { get; set; }
+        public DateTime Timestamp { get; set; }
+    }
+}
